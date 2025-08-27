@@ -13,12 +13,19 @@ export const DeviceSchema = z.object({
   name: z.string().min(2, "Device name is required"),
   type: z.int("Device type is required"),
   location: z.string().max(100).optional(),
-  status: z.record(statusString(), statusString()),
+  status: z.record(
+    statusString(),
+    statusString()
+      .or(z.number().transform(String))
+      .or(z.boolean().transform(String))
+  ),
   statusFields: z
     .array(
       z.object({
         key: statusString(),
-        value: statusString(),
+        value: statusString()
+          .or(z.number().transform(String))
+          .or(z.boolean().transform(String)),
       })
     )
     .optional(),
