@@ -14,10 +14,14 @@ Once the dependencies have successfully installed, run the following commands.
 1. Create a free account on supabase - https://supabase.com/
 2. Create new project
 3. Project name - HomeLink, Region - West Europe - London
-4. Take a note of your password
+4. Take a note of your database password
 5. Click Connect in the top nav bar. Select ORM and ensure 'Prisma' is the tool selected'
 6. Copy the DATABASE_URL and DIRECT_URL and create a new file name .env at the root of backend.
-7. Replace [YOUR-PASSWORD] with the password used in step 4
+7. Replace [YOUR-PASSWORD] with the database password used in step 4
+
+If your database fails to connect, it may be related to supabases pooled connections.
+Try this solution
+https://github.com/prisma/prisma/discussions/24412
 
 # Create DB tables
 
@@ -29,6 +33,6 @@ npx prisma db seed
 
 # Running the server locally
 
-npm run sever
+npm run server
 
 The application start on http://localhost:4000/
