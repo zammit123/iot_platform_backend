@@ -45,20 +45,20 @@ export const getDeviceById = async (req: Request, res: Response) => {
 };
 
 export const createDevice = async (req: Request, res: Response) => {
-  try {
-    // Validate the request body against the schema
-    const result = DeviceSchema.safeParse(req.body);
-    if (!result.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid device data", issues: result.error.issues });
-    }
+  // Validate the request body against the schema
+  const result = DeviceSchema.safeParse(req.body);
+  if (!result.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid device data", issues: result.error.issues });
+  }
 
-    const { name, type, location, status, id } = req.body;
+  try {
+    const { name, description, type, location, status, id } = req.body;
 
     // The response returns the details of the registered device, including a unique identifier.
     const device = await prisma.device.create({
-      data: { id, name, type, location, status: status || {} },
+      data: { id, name, description, type, location, status: status || {} },
     });
     res.status(201).json(device);
   } catch (error) {
@@ -68,23 +68,46 @@ export const createDevice = async (req: Request, res: Response) => {
 };
 
 export const updateDevice = async (req: Request, res: Response) => {
+  // Validate the request body against the schema
+  const result = DeviceSchema.safeParse(req.body);
+  if (!result.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid device data", issues: result.error.issues });
+  }
+
+  const id = req.params.id;
+
   try {
-    // Validate the request body against the schema
-    const result = DeviceSchema.safeParse(req.body);
-    if (!result.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid device data", issues: result.error.issues });
-    }
+    await prisma.$transaction(async (tx) => {
+      // Fetch current device
+      const current = await tx.device.findUnique({
+        where: { id },
+      });
 
-    const { name, type, location, status } = req.body;
+      if (!current) throw new Error("Device not found");
 
-    const device = await prisma.device.update({
-      where: { id: req.params.id },
-      data: { name, type, location, status },
+      // Insert current state into history
+      await tx.deviceHistory.create({
+        data: {
+          deviceId: current.id,
+          type: current.type,
+          name: current.name,
+          description: current.description,
+          location: current.location,
+          status: current.status ?? {},
+        },
+      });
+
+      const { name, description, type, location, status } = req.body;
+
+      const device = await prisma.device.update({
+        where: { id },
+        data: { name, description, type, location, status },
+      });
+
+      res.json(device);
     });
-
-    res.json(device);
   } catch (error) {
     console.error("Failed to update device:", error);
     res.status(500).json({ error: "Failed to update device" });
@@ -92,23 +115,48 @@ export const updateDevice = async (req: Request, res: Response) => {
 };
 
 export const updateDeviceStatus = async (req: Request, res: Response) => {
-  try {
-    const result = DeviceStatusSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({
-        error: "Invalid device status data",
-        issues: result.error.issues,
-      });
-    }
+  const id = req.params.id;
 
-    const { status } = req.body;
-
-    const device = await prisma.device.update({
-      where: { id: req.params.id },
-      data: { status },
+  const result = DeviceStatusSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({
+      error: "Invalid device status data",
+      issues: result.error.issues,
     });
-    // The response confirms the update
-    res.json({ message: "Device status updated successfully", device });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Fetch current device
+      const current = await tx.device.findUnique({
+        where: { id },
+      });
+
+      if (!current) throw new Error("Device not found");
+
+      // Insert current state into history
+      await tx.deviceHistory.create({
+        data: {
+          deviceId: current.id,
+          type: current.type,
+          name: current.name,
+          description: current.description,
+          location: current.location,
+          status: current.status ?? {},
+        },
+      });
+
+      // Update only the status field
+      const { status } = req.body;
+
+      const device = await prisma.device.update({
+        where: { id },
+        data: { status },
+      });
+
+      // The response confirms the update
+      res.json({ message: "Device status updated successfully", device });
+    });
   } catch (error) {
     console.error("Failed to update device status:", error);
     res.status(500).json({ error: "Failed to update device status" });
